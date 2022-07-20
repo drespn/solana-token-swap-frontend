@@ -6,14 +6,10 @@ import Image from "next/image"
 export const AppBar: FC = () => {
     return (
         <div className={styles.AppHeader}>
-            <Image
-                alt="Solana logo"
-                src="/solanaLogo.png"
-                height={30}
-                width={200}
-            />
-            <span>Token Swap</span>
+            
+            <header>LP DeFi Protocol Version 0.1.0</header>
             <WalletMultiButton />
         </div>
+
     )
 }

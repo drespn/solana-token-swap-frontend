@@ -41,6 +41,60 @@ export const WithdrawSingleTokenType: FC = (props: {
             alert("Please connect your wallet!")
             return
         }
+
+        //derive appropriate addresses
+        const kryptAta = await token.getAssociatedTokenAddress(kryptMint,publicKey)
+        const scroogeAta = await token.getAssociatedTokenAddress(ScroogeCoinMint,publicKey)
+        const tokenAccountLP = await token.getAssociatedTokenAddress(poolMint,publicKey)
+
+        //retrieve pool account info(or create it)
+        const poolMintAccount = await token.getMint(connection,poolMint)
+
+        const tx = new Web3.Transaction()
+
+        //account for pool
+        const accountInfoLP = await connection.getAccountInfo(tokenAccountLP)
+
+        //CHECK: if account is created or not
+        if(accountInfoLP == null){
+            const createLPataIx = token.createAssociatedTokenAccountInstruction(
+                publicKey,
+                tokenAccountLP,
+                publicKey,
+                poolMint
+            )
+            tx.add(createLPataIx)
+        }
+
+        //create instruction for dual widthdrawal
+        const widthdrawalIx = TokenSwap.withdrawAllTokenTypesInstruction(
+            tokenSwapStateAccount,
+            swapAuthority,
+            publicKey,
+            poolMint,
+            feeAccount,
+            tokenAccountLP,
+            poolKryptAccount,
+            poolScroogeAccount,
+            kryptAta,
+            scroogeAta,
+            TOKEN_SWAP_PROGRAM_ID,
+            TOKEN_PROGRAM_ID,
+            poolTokenAmount * 10 ** poolMintAccount.decimals,
+            0,
+            0
+        )
+
+        tx.add(widthdrawalIx)
+        
+        try {
+            const txid = await sendTransaction(tx,connection)
+            alert(
+                `Transaction submitted: https://explorer.solana.com/tx/${txid}?cluster=devnet`
+            )
+        } catch (error) {
+            alert(JSON.stringify(error))
+        }
     }
 
     return (

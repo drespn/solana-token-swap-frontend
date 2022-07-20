@@ -20,6 +20,7 @@ import {
 } from "../utils/constants"
 import { TokenSwap, TOKEN_SWAP_PROGRAM_ID } from "@solana/spl-token-swap"
 import * as token from "@solana/spl-token"
+import { TOKEN_PROGRAM_ID } from "@solana/spl-token"
 
 export const DepositSingleTokenType: FC = (props: {
     onInputChange?: (val: number) => void
@@ -36,9 +37,61 @@ export const DepositSingleTokenType: FC = (props: {
     }
 
     const handleTransactionSubmit = async () => {
+        //check for walley connection
         if (!publicKey) {
             alert("Please connect your wallet!")
             return
+        }
+
+        //fetch all token accounts for both tokens
+        const kryptAta = await token.getAssociatedTokenAddress(kryptMint,publicKey)
+        const scroogeAta = await token.getAssociatedTokenAddress(ScroogeCoinMint,publicKey)
+        const tokenAccountLP = await token.getAssociatedTokenAddress(poolMint,publicKey)
+
+        const poolinfo = await token.getMint(connection,poolMint)
+
+        //CHECK: that LP token account exists
+        const tx = new Web3.Transaction()
+
+        //getting full account info for LP ata
+        const accountInfoLP = await connection.getAccountInfo(tokenAccountLP)
+
+        //CHECK: that LP token ata exists, as the publickey does, but may not have account
+        if(accountInfoLP == null){
+            //create the ata for LP
+            const createLPataIx = token.createAssociatedTokenAccountInstruction(
+                publicKey,
+                tokenAccountLP,
+                publicKey,
+                poolMint 
+            )
+            tx.add(createLPataIx)
+        }
+        //create the instruction from API
+        const depositBothIx = TokenSwap.depositAllTokenTypesInstruction(
+            tokenSwapStateAccount, 
+            swapAuthority,
+            publicKey,
+            kryptAta,
+            scroogeAta,
+            poolKryptAccount,
+            poolScroogeAccount,
+            poolMint,
+            tokenAccountLP,
+            TOKEN_SWAP_PROGRAM_ID,
+            TOKEN_PROGRAM_ID,
+            poolTokenAmount * 10 ** poolinfo.decimals,
+            100e9,
+            100e9
+        )
+
+        tx.add(depositBothIx)
+
+        try {
+           const txid = await sendTransaction(tx,connection)
+           alert(`Transaction submitted: https://explorer.solana.com/tx/${txid}?cluster=devnet`)
+        } catch (error) {
+            alert(JSON.stringify(error))
         }
     }
 
